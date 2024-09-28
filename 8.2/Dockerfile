@@ -30,7 +30,7 @@ RUN apk add --no-cache \
     gettext-dev \
     libxslt-dev \
     libzip-dev \
-    imap-dev \
+#     imap-dev \
     c-client \
     mpdecimal \
     mpdecimal-dev \
@@ -44,7 +44,11 @@ RUN apk add --no-cache \
     libavif-dev \
     libwebp-dev \
     libxpm-dev \
-    rabbitmq-c-dev
+    rabbitmq-c-dev \
+    linux-pam-dev
+
+# COPY libc-client.a /usr/include/imap/libc-client.a
+
 
 # Задаем версии PHP и его расширений
 ENV PHP_VERSION 8.2.23
@@ -54,8 +58,17 @@ ENV MEMCACHED_VERSION 3.2.0
 ENV MEMCACHE_VERSION 8.2
 ENV REDIS_VERSION 5.3.7
 ENV DECIMAL_VERSION 1.5.0
-ENV IMAP_VERSION 1.0.0
+ENV IMAP_VERSION 1.0.2
 ENV RABBITMQ_VERSION 2.1.2
+
+RUN curl -fsSL http://ftp.ntua.gr/pub/net/mail/imap/imap-2007f.tar.gz -o imap-2007f.tar.gz && \
+   tar -xzf imap-2007f.tar.gz && \
+   cd imap-2007f && \
+   yes "y" | make -j1 slx SPECIALAUTHENTICATORS=ssl SSLTYPE=none IP6=4 SSLINCLUDE=/usr/include/openssl && \
+   mkdir /usr/include/imap && \
+   cp src/c-client/*.h /usr/include/imap && \
+#    cp src/c-client/linkage.c /usr/include/imap/linkage.c && \
+   cd .. && rm -rf imap-2007f imap-2007b.tgz
 
 # Загружаем и собираем PHP из исходного кода
 RUN curl -fsSL https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz -o php.tar.gz && \
@@ -110,6 +123,10 @@ RUN curl -fsSL https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz -o ph
     --enable-intl \
     --with-pear \
     --with-sqlite3 \
+    --with-imap \
+    --with-imap-ssl \
+    --with-kerberos \
+#     --with-kerberos-inc=/usr/include \
     && make && make install && \
     cp php.ini-production /usr/local/php/php.ini && \
     cd .. && rm -rf php-${PHP_VERSION} php.tar.gz
@@ -168,16 +185,6 @@ RUN curl -fsSL https://pecl.php.net/get/decimal-${DECIMAL_VERSION}.tgz -o decima
     make && make install && \
     cd .. && rm -rf decimal-${DECIMAL_VERSION} decimal.tgz
 
-# Устанавливаем IMap
-RUN curl -fsSL https://pecl.php.net/get/imap-${IMAP_VERSION}.tgz -o imap.tgz && \
-    tar -xzf imap.tgz && \
-    cd imap-${IMAP_VERSION} && \
-    /usr/local/php/bin/phpize && \
-    ./configure --with-php-config=/usr/local/php/bin/php-config && \
-    make && make install && \
-    cd .. && rm -rf imap-${IMAP_VERSION} imap.tgz
-
-
 # Устанавливаем RabbitMQ
 RUN curl -fsSL https://pecl.php.net/get/amqp-${RABBITMQ_VERSION}.tgz -o amqp.tgz && \
     tar -xzf amqp.tgz && \
@@ -190,20 +197,20 @@ RUN curl -fsSL https://pecl.php.net/get/amqp-${RABBITMQ_VERSION}.tgz -o amqp.tgz
 # Устанавливаем Ionube
 RUN curl -fsSL https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz -o ioncube_loaders.tar.gz && \
     tar -xzf ioncube_loaders.tar.gz && \
-    cp ioncube/ioncube_loader_lin_8.3.so /usr/local/php/lib/php/extensions/no-debug-non-zts-20230831/ioncube_loader_lin_8.3.so && \
-    echo "zend_extension=ioncube_loader_lin_8.3.so" >> /usr/local/php/php.ini && \
+#     cp ioncube/ioncube_loader_lin_8.3.so /usr/local/php/lib/php/extensions/no-debug-non-zts-20230831/ioncube_loader_lin_8.3.so && \
+#     echo "zend_extension=ioncube_loader_lin_8.3.so" >> /usr/local/php/php.ini && \
     rm -rf ioncube ioncube_loaders.tar.gz
 
 # Биндинг
-RUN ln /usr/local/php/bin/php /bin/php && \
-    ln /usr/local/php/bin/phpize /bin/phpize && \
-    ln /usr/local/php/bin/php-fpm /bin/php-fpm && \
+# RUN ln /usr/local/php/bin/php /bin/php && \
+#     ln /usr/local/php/bin/phpize /bin/phpize && \
+#     ln /usr/local/php/bin/php-fpm /bin/php-fpm && \
 
-# Composer
-RUN curl -sS https://getcomposer.org/installer | php -- \
-    --filename=composer \
-    --install-dir=/usr/local/bin && \
-    echo "alias composer='composer'" >> /root/.bashrc
+# # Composer
+# RUN curl -sS https://getcomposer.org/installer | php -- \
+#     --filename=composer \
+#     --install-dir=/usr/local/bin && \
+#     echo "alias composer='composer'" >> /root/.bashrc
 
 
 # Настраиваем рабочую директорию
