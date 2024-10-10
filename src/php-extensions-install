@@ -1,0 +1,9 @@
+#!/bin/bash
+
+curl -fsSL https://pecl.php.net/get/$1.tgz -o $1.tgz && \
+    tar -xzf $1.tgz && \
+    cd $1 && \
+    /usr/local/php/bin/phpize && \
+    ./configure --with-php-config=/usr/local/php/bin/php-config && \
+    make && make install && \
+    cd .. && rm -rf $1 $1.tgz
